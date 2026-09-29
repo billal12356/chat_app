@@ -13,10 +13,16 @@ import { friendRequests } from '../database/schema/friend-requests.schema.js';
 import { friendships } from '../database/schema/friendships.schema.js';
 
 import { users } from '../database/schema/users.schema.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationsGateway } from '../notifications/notifications.gateway.js';
 
 @Injectable()
 export class FriendsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
 
   async sendRequest(senderId: number, receiverId: number) {
     if (senderId === receiverId) {
@@ -76,7 +82,33 @@ export class FriendsService {
       })
       .returning();
 
-    return result[0];
+    const request = result[0];
+
+    const sender = await this.database.db
+      .select({
+        id: users.id,
+        username: users.username,
+      })
+      .from(users)
+      .where(eq(users.id, senderId))
+      .limit(1);
+      console.log('sender',sender)
+
+    const notification = await this.notificationsService.createNotification({
+      userId: receiverId,
+      type: 'FRIEND_REQUEST',
+      title: 'New friend request',
+      message: `User ${sender[0].username} sent you a friend request`,
+    });
+    console.log('notification',notification)
+
+    this.notificationsGateway.sendToUser(
+      receiverId,
+      'notification:new',
+      notification,
+    );
+
+    return request;
   }
 
   private async findFriendship(userId: number, friendId: number) {
