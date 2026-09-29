@@ -21,6 +21,16 @@ export class UsersService {
     return result[0] ?? null;
   }
 
+  async findById(id: number) {
+    const result = await this.database.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    return result[0] ?? null;
+  }
+
   findAll() {
     return `This action returns all users`;
   }
